@@ -34,7 +34,7 @@ public class TerminalIO {
     }
 
     public boolean requestApproval(String prompt,Object... args) throws IOException {
-        return "y".equalsIgnoreCase(read(prompt+String.join(" ", Arrays.toString(args))));
+        return "y".equalsIgnoreCase(read(prompt+String.join(" ", Arrays.toString(args))+" (y/n): "));
     }
 
     public synchronized void printLine(String text) {

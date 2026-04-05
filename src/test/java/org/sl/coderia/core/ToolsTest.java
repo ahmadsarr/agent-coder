@@ -16,8 +16,8 @@ class ToolsTest {
     private final Tools tools = new Tools(sandbox);
 
     @Test
-    void commandRejectsInjectionLikeInput() {
-        String result = tools.command("ls; pwd");
+    void execCommandRejectsInjectionLikeInput() {
+        String result = tools.ExecCommand("ls; pwd");
         assertTrue(result.contains("\"success\":false"));
         assertTrue(result.contains("Command not allowed"));
     }

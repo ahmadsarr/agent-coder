@@ -7,7 +7,8 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 
 public class Utils {
-    private Utils() {}
+    private Utils() {
+    }
 
     public static HttpClientBuilder createHttpClientBuilder(long timeout) {
         return JdkHttpClient.builder()
@@ -16,4 +17,9 @@ public class Utils {
                 .httpClientBuilder(java.net.http.HttpClient.newBuilder()
                         .version(HttpClient.Version.HTTP_1_1));
     }
+
+    public static String escapeJson(String s) {
+        return s.replace("\"", "\\\"").replace("\n", "\\n");
+    }
+
 }
