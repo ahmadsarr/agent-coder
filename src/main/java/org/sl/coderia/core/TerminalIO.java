@@ -3,10 +3,11 @@ package org.sl.coderia.core;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Arrays;
 
 public class TerminalIO {
 
-    private static volatile TerminalIO instance;
+    protected static volatile TerminalIO instance;
     private final BufferedReader reader;
 
     private TerminalIO() {
@@ -30,6 +31,10 @@ public class TerminalIO {
             System.out.flush();
         }
         return reader.readLine();
+    }
+
+    public boolean requestApproval(String prompt,Object... args) throws IOException {
+        return "y".equalsIgnoreCase(read(prompt+String.join(" ", Arrays.toString(args))));
     }
 
     public synchronized void printLine(String text) {

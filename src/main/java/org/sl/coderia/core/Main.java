@@ -7,10 +7,14 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.*;
 import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
+import org.sl.coderia.core.sandbox.ToolSandbox;
 
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 
 public class Main {
     interface Assistant {
@@ -59,7 +63,7 @@ public class Main {
                 .logResponses(true)
                 .httpClientBuilder(httpClientBuilder)
                 .build();
-
+        ToolSandbox toolSandbox = new ToolSandbox(new HashSet<>(Arrays.stream(ToolSandbox.Permission.values()).toList()));
         Assistant assistant = AiServices.builder(Assistant.class)
                 .chatModel(model)
                 .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
@@ -67,7 +71,7 @@ public class Main {
                         .maxMessages(10)
                         .chatMemoryStore(new InMemoryChatMemoryStore())
                         .build())
-                .tools(new Tools())
+                .tools(new Tools(toolSandbox))
                 .build();
 
         TerminalIO terminal = TerminalIO.getInstance();

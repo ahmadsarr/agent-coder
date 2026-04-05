@@ -1,6 +1,9 @@
 package org.sl.coderia.core;
 
 import dev.langchain4j.agent.tool.Tool;
+import org.sl.coderia.core.sandbox.ToolPolicy;
+import org.sl.coderia.core.sandbox.ToolSandbox;
+import org.sl.coderia.core.sandbox.ToolSandbox.Permission;
 
 
 import java.io.BufferedReader;
@@ -14,12 +17,32 @@ import static java.nio.file.StandardOpenOption.APPEND;
 
 public class Tools {
 
-    private static final List<String> ALLOWED_COMMANDS = List.of("ls", "cat", "echo", "pwd");
+    private static final List<String> ALLOWED_COMMANDS = List.of(
+            "ls", "cat", "echo", "pwd", "git",
+            "find", "grep", "head", "tail", "wc",
+            "mkdir", "cp", "mv", "rm",
+            "mvn", "gradle", "java", "javac",
+            "curl", "wget",
+            "ps", "env", "which", "whoami"
+    );
     private static final Path WORKSPACE_ROOT = Paths.get("").toAbsolutePath().normalize();
+    private final ToolSandbox sandbox;
 
-    // ---------------- FILE TOOLS ----------------
+    public Tools(ToolSandbox sandbox) {
+        this.sandbox = sandbox;
+    }
+
     @Tool("Write content to a file at the given path")
+    @ToolPolicy(requires = {Permission.FILE_WRITE})
     public String writeFile(String path, String content) {
+        try {
+            return this.sandbox.run(Tools.class.getMethod("writeFile", String.class), () -> writeFileOriginal(path, content));
+        } catch (Exception e) {
+            return "{\"success\":false, \"error\":\"" + e.getMessage() + "\"}";
+        }
+    }
+
+    private String writeFileOriginal(String path, String content) {
         try {
             Path resolved = resolveWithinWorkspace(path);
 
@@ -37,7 +60,17 @@ public class Tools {
     }
 
     @Tool("Read content from a file at the given path")
+    @ToolPolicy(requires = {Permission.READ_ONLY})
     public String readFile(String path) {
+        try {
+            return this.sandbox.run(Tools.class.getMethod("readFile", String.class), () -> readFileOriginal(path));
+
+        } catch (Exception e) {
+            return "{\"success\":false, \"error\":\"" + e.getMessage() + "\"}";
+        }
+    }
+
+    private String readFileOriginal(String path) {
         try {
             Path resolved = resolveWithinWorkspace(path);
 

@@ -1,16 +1,18 @@
 package org.sl.coderia.core;
 
 import org.junit.jupiter.api.Test;
+import org.sl.coderia.core.sandbox.ToolSandbox;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ToolsTest {
-
-    private final Tools tools = new Tools();
+    private final ToolSandbox sandbox = new ToolSandbox(Arrays.stream(ToolSandbox.Permission.values()).collect(java.util.stream.Collectors.toSet()));
+    private final Tools tools = new Tools(sandbox);
 
     @Test
     void commandRejectsInjectionLikeInput() {
