@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Miles of Smiles Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="grain"></div>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="brand">Miles of Smiles</p>
+        <h1>Chat Support Booking</h1>
+      </div>
+      <span class="status-dot">API /api/v1</span>
+    </header>
+
+    <section id="chat-window" class="chat-window" aria-live="polite"></section>
+
+    <div class="quick-actions" aria-label="Raccourcis">
+      <button data-quick="Je veux voir ma commande">Voir ma commande</button>
+      <button data-quick="Je veux lister mes reservations">Lister mes reservations</button>
+      <button data-quick="Je veux annuler ma reservation">Annuler une reservation</button>
+    </div>
+
+    <form id="chat-form" class="composer">
+      <input id="chat-input" placeholder="Ex: Je veux voir ma commande" autocomplete="off" required>
+      <button type="submit">Envoyer</button>
+    </form>
+  </main>
+
+  <template id="message-template">
+    <article class="msg">
+      <p class="msg-author"></p>
+      <div class="msg-body"></div>
+    </article>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>
