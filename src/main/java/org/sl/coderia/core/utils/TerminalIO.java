@@ -1,4 +1,4 @@
-package org.sl.coderia.core;
+package org.sl.coderia.core.utils;
 
 import java.io.BufferedReader;
 import java.io.IOException;

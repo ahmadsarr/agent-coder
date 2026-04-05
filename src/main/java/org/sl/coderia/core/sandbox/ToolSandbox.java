@@ -1,6 +1,6 @@
 package org.sl.coderia.core.sandbox;
 
-import org.sl.coderia.core.TerminalIO;
+import org.sl.coderia.core.utils.TerminalIO;
 
 import java.lang.reflect.Method;
 import java.util.Set;
@@ -48,6 +48,13 @@ public class ToolSandbox {
 
 
         return result;
+    }
+    public String safeRun(Method toolMethod, Callable<String> action, Object... args) {
+        try {
+            return run(toolMethod, action, args);
+        } catch (Exception e) {
+            return "{\"success\":false, \"error\":\"" + e.getMessage() + "\"}";
+        }
     }
 
 

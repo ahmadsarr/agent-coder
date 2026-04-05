@@ -1,21 +1,28 @@
-package org.sl.coderia.core;
+package org.sl.coderia.core.tools;
 
 import dev.langchain4j.agent.tool.Tool;
 import org.sl.coderia.core.sandbox.ToolPolicy;
 import org.sl.coderia.core.sandbox.ToolSandbox;
 import org.sl.coderia.core.sandbox.ToolSandbox.Permission;
+import org.sl.coderia.core.utils.TerminalIO;
 
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Method;
 import java.nio.file.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static java.nio.file.StandardOpenOption.APPEND;
 
-public class Tools {
+public class Tools implements FileOperations {
 
     private static final List<String> ALLOWED_COMMANDS = List.of(
             "ls", "cat", "echo", "pwd", "git",
@@ -35,53 +42,31 @@ public class Tools {
     @Tool("Write content to a file at the given path")
     @ToolPolicy(requires = {Permission.FILE_WRITE})
     public String writeFile(String path, String content) {
-        try {
-            return this.sandbox.run(Tools.class.getMethod("writeFile", String.class), () -> writeFileOriginal(path, content));
-        } catch (Exception e) {
-            return "{\"success\":false, \"error\":\"" + e.getMessage() + "\"}";
-        }
-    }
-
-    private String writeFileOriginal(String path, String content) {
-        try {
-            Path resolved = resolveWithinWorkspace(path);
-
-            if (resolved.getParent() != null) {
-                Files.createDirectories(resolved.getParent());
-            }
-            Files.writeString(resolved, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-
-            TerminalIO.getInstance().printLine("[TOOL] writeFile: Written " + content.length() + " chars to " + resolved);
-            return "{\"success\":true, \"message\":\"File written successfully to " + resolved + "\"}";
-
-        } catch (Exception e) {
-            return "{\"success\":false, \"error\":\"" + e.getMessage() + "\"}";
-        }
+        return exec("writeFile", m -> this.sandbox.safeRun(m, () -> writeOps(path, content)));
     }
 
     @Tool("Read content from a file at the given path")
     @ToolPolicy(requires = {Permission.READ_ONLY})
     public String readFile(String path) {
-        try {
-            return this.sandbox.run(Tools.class.getMethod("readFile", String.class), () -> readFileOriginal(path));
-
-        } catch (Exception e) {
-            return "{\"success\":false, \"error\":\"" + e.getMessage() + "\"}";
-        }
+        return exec("writeFile", m -> this.sandbox.safeRun(m, () -> readOps(path)));
     }
 
-    private String readFileOriginal(String path) {
-        try {
-            Path resolved = resolveWithinWorkspace(path);
+    @Tool("Edit a file at the given path, replacing oldContent with newContent")
+    public String editFile(String path, String oldContent, String newContent) {
 
-            String content = Files.readString(resolved);
-            TerminalIO.getInstance().printLine("[TOOL] readFile: Read " + content.length() + " chars from " + resolved);
-            return content;
-
-        } catch (Exception e) {
-            return "{\"success\":false, \"error\":\"" + e.getMessage() + "\"}";
-        }
+        return exec("writeFile", m -> this.sandbox.safeRun(m, () -> editOpts(path,oldContent,newContent)));
     }
+
+
+    private String exec(String name, Function<Method, String> action) {
+        return Arrays.stream(this.getClass().getMethods())
+                .filter(m -> m.getName().equals(name))
+                .findFirst()
+                .map(action)
+                .orElse("writeFile not found");
+    }
+
+
 
     @Tool("Read or update memory.md scratchpad action =read|write|append")
     public String memory(String action, String content) {
@@ -106,29 +91,6 @@ public class Tools {
         }
     }
 
-    @Tool("Edit a file at the given path, replacing oldContent with newContent")
-    public String editFile(String path, String oldContent, String newContent) {
-        try {
-            Path resolved = resolveWithinWorkspace(path);
-            String content = Files.readString(resolved);
-            if (oldContent == null || oldContent.isEmpty()) {
-                return "{\"success\":false, \"error\":\"oldContent cannot be empty\"}";
-            }
-            int count = countOccurrences(content, oldContent);
-            if (count == 0) {
-                return "{\"success\":false, \"error\":\"No matching content found\"}";
-            }
-            if (count > 1) {
-                return "{\"success\":false, \"error\":\"Found %d occurrences. Be more specific.\"}".formatted(count);
-            }
-            int idx = content.indexOf(oldContent);
-            String updated = content.substring(0, idx) + newContent + content.substring(idx + oldContent.length());
-            Files.writeString(resolved, updated, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            return "{\"success\":true, \"message\":\"File edited successfully to " + resolved + "\"}";
-        } catch (IOException e) {
-            return "{\"success\":false, \"error\":\"" + e.getMessage() + "\"}";
-        }
-    }
 
     // ---------------- COMMAND TOOL ----------------
     @Tool("Execute a shell command and return output")
@@ -181,28 +143,6 @@ public class Tools {
     // ---------------- HELPERS ----------------
     private String escapeJson(String s) {
         return s.replace("\"", "\\\"").replace("\n", "\\n");
-    }
-
-    private Path resolveWithinWorkspace(String inputPath) {
-        Path candidate = Paths.get(inputPath);
-        Path resolved = candidate.isAbsolute() ? candidate.normalize() : WORKSPACE_ROOT.resolve(candidate).normalize();
-        if (!resolved.startsWith(WORKSPACE_ROOT)) {
-            throw new IllegalArgumentException("Path escapes workspace: " + inputPath);
-        }
-        return resolved;
-    }
-
-    private int countOccurrences(String content, String needle) {
-        int count = 0;
-        int from = 0;
-        while (true) {
-            int idx = content.indexOf(needle, from);
-            if (idx < 0) {
-                return count;
-            }
-            count++;
-            from = idx + needle.length();
-        }
     }
 
     private List<String> tokenizeCommand(String raw) {

@@ -1,4 +1,4 @@
-package org.sl.coderia.core;
+package org.sl.coderia.core.sandbox;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -33,8 +33,6 @@ public class EnvironmentSnapshot {
         return new EnvironmentSnapshot(cwd.isEmpty() ? Path.of(".") : Path.of(cwd));
     }
 
-    // ── Rendering ─────────────────────────────────────────────────────────────
-
     public String render() {
         return """
                 ## Environment
@@ -49,8 +47,6 @@ public class EnvironmentSnapshot {
                 %s
                 """.formatted(workingDir, buildTool, runtimeInfo, gitStatus, projectTree);
     }
-
-    // ── Builders ──────────────────────────────────────────────────────────────
 
     private String buildTree() throws IOException {
         try (Stream<Path> paths = Files.walk(workingDir)) {
