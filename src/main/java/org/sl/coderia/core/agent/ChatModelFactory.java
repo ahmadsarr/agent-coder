@@ -6,12 +6,14 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
+import lombok.Builder;
 
 public final class ChatModelFactory {
 
     private ChatModelFactory() {
     }
 
+    @Builder( builderMethodName = "openAiChatModelBuilder")
     public static ChatModel create(
             String apiKey,
             String baseUrl,
