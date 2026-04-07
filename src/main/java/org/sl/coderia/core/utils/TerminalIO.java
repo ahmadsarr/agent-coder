@@ -33,8 +33,12 @@ public class TerminalIO {
         return reader.readLine();
     }
 
-    public boolean requestApproval(String prompt,Object... args) throws IOException {
-        return "y".equalsIgnoreCase(read(prompt+String.join(" ", Arrays.toString(args))+" (y/n): "));
+    public boolean requestApproval(String prompt,Object... args)  {
+        try {
+            return "y".equalsIgnoreCase(read(prompt+String.join(" ", Arrays.toString(args))+" (y/n): "));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public synchronized void printLine(String text) {

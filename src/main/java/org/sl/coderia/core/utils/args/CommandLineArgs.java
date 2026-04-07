@@ -7,7 +7,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Getter
 @Setter
-public class ArgForModel implements Helper {
+public class CommandLineArgs implements Helper {
     private static final String DEFAULT_API_KEY = "sk-";
     private static final String DEFAULT_BASE_URL = "http://localhost:1234/v1";
     private static final String DEFAULT_MODEL_NAME = "qwen/qwen3-coder-30b";
@@ -30,7 +30,7 @@ public class ArgForModel implements Helper {
     @Arg(name = "--log-responses", description = "Log responses from OpenAI to stdout",defaultValue = DEFAULT_LOG_RESPONSES)
     private boolean logResponse;
 
-    public ArgForModel() {}
+    public CommandLineArgs() {}
 
     @Override
     public String toString() {

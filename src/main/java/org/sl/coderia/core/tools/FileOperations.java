@@ -13,6 +13,7 @@ public interface FileOperations {
     Path WORKSPACE_ROOT = Paths.get("").toAbsolutePath().normalize();
 
     default String writeOps(String path, String content) {
+        TerminalIO.getInstance().printLine("Writing file:"+path);
         try {
             Path resolved = resolveWithinWorkspace(path);
 
@@ -34,6 +35,7 @@ public interface FileOperations {
     }
 
     default String readOps(String path) {
+        TerminalIO.getInstance().printLine("Reading file:"+path);
         try {
             Path resolved = resolveWithinWorkspace(path);
 
@@ -49,6 +51,7 @@ public interface FileOperations {
     }
 
     default String editOpts(String path, String oldContent, String newContent) {
+        TerminalIO.getInstance().printLine("Editing file:"+path);
         try {
             Path resolved = resolveWithinWorkspace(path);
             String content = Files.readString(resolved);

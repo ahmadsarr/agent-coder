@@ -1,4 +1,4 @@
-package org.sl.coderia.core.sandbox;
+package org.sl.coderia.core.tools;
 
 import org.sl.coderia.core.utils.TerminalIO;
 
@@ -19,7 +19,7 @@ public class ToolSandbox {
         this.grantedPermissions = granted;
     }
 
-    public <T> T run(Method toolMethod, Callable<T> action, Object... args) throws Exception {
+    public <T> T run(Method toolMethod, Callable<T> action, Object... args)  {
         ToolPolicy policy = toolMethod.getAnnotation(ToolPolicy.class);
         String     name   = toolMethod.getName();
 
@@ -31,7 +31,7 @@ public class ToolSandbox {
         if (policy.risk() == RiskLevel.BLOCKED)
             throw new SecurityException("Tool '" + name + "' is unconditionally blocked");
 
-        if (policy.risk() == RiskLevel.RISKY && !TerminalIO.getInstance().requestApproval(name,args))
+        if (policy.risk() == RiskLevel.RISKY)
             throw new SecurityException("User denied execution of '" + name + "'");
 
         Future<T> future = executor.submit(action);
@@ -42,6 +42,8 @@ public class ToolSandbox {
         } catch (TimeoutException e) {
             future.cancel(true);
             throw new RuntimeException("Tool '" + name + "' timed out after " + policy.timeoutMs() + "ms");
+        }catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
         }
 
         result = sanitise(result, 8_000);
@@ -50,11 +52,8 @@ public class ToolSandbox {
         return result;
     }
     public String safeRun(Method toolMethod, Callable<String> action, Object... args) {
-        try {
             return run(toolMethod, action, args);
-        } catch (Exception e) {
-            return "{\"success\":false, \"error\":\"" + e.getMessage() + "\"}";
-        }
+
     }
 
 

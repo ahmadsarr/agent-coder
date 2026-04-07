@@ -4,6 +4,7 @@ import org.sl.coderia.core.utils.TerminalIO;
 import org.sl.coderia.core.utils.Utils;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,26 +24,9 @@ public interface CommandOps {
                     "ps", "env", "which", "whoami"
             )
     );
-     default String execOps(String command) {
-        try {
-            List<String> args = tokenizeCommand(command);
-            if (args.isEmpty()) {
-                return """
-                    {"success":false, "error":"Empty command"}
-                    """;
-
-            }
-            String cmdName = args.get(0);
-            boolean isApproval = allowsCommands.contains(cmdName) || TerminalIO.getInstance().requestApproval("Can I execute this command: " + command);
-            if (!isApproval) {
-                return """
-                    {"success":false, "error":"Command not allowed: %s"}
-                    """.formatted(cmdName);
-            }
-
-            TerminalIO.getInstance().printLine("[TOOL] Executing command: " + command);
-
-            ProcessBuilder pb = new ProcessBuilder(args);
+     default String execOps(String command) throws IOException, InterruptedException {
+            TerminalIO.getInstance().printLine("Executing command: " + command);
+            ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(WORKSPACE_ROOT.toFile());
             pb.redirectErrorStream(true);
             Process process = pb.start();
@@ -61,11 +45,7 @@ public interface CommandOps {
                     {"success":true, "exitCode":%d, "output":"%s"}
                     """.formatted(exitCode, Utils.escapeJson(output.toString()));
 
-        } catch (Exception e) {
-            return """
-                    {"success":false, "error":"%s"}
-                    """.formatted(Utils.escapeJson(e.getMessage()));
-        }
+
     }
     private List<String> tokenizeCommand(String raw) {
         List<String> parts = new ArrayList<>();

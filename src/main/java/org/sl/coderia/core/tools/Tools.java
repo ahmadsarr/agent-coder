@@ -1,20 +1,18 @@
 package org.sl.coderia.core.tools;
 
 import dev.langchain4j.agent.tool.Tool;
-import org.sl.coderia.core.sandbox.ToolPolicy;
-import org.sl.coderia.core.sandbox.ToolSandbox;
-import org.sl.coderia.core.sandbox.ToolSandbox.Permission;
+import org.sl.coderia.core.tools.ToolSandbox.Permission;
+import org.sl.coderia.core.tools.ToolSandbox.RiskLevel;
 import org.sl.coderia.core.utils.TerminalIO;
 
 import java.lang.reflect.Method;
 import java.nio.file.*;
 import java.util.*;
-import java.util.function.Function;
+import java.util.concurrent.Callable;
 
 import static java.nio.file.StandardOpenOption.APPEND;
 
 public class Tools implements FileOperations, CommandOps {
-
 
     private final ToolSandbox sandbox;
 
@@ -22,80 +20,73 @@ public class Tools implements FileOperations, CommandOps {
         this.sandbox = sandbox;
     }
 
+    // ── tools ─────────────────────────────────────────────────────────────
+
     @Tool("Write content to a file at the given path")
-    @ToolPolicy(requires = {Permission.FILE_WRITE})
+    @ToolPolicy(requires = {Permission.FILE_WRITE}, risk = RiskLevel.SAFE)
     public String writeFile(String path, String content) {
-        return exec("writeFile", m -> this.sandbox.safeRun(m, () -> writeOps(path, content)));
+        return run("writeFile", () -> writeOps(path, content));
     }
 
     @Tool("Read content from a file at the given path")
-    @ToolPolicy(requires = {Permission.READ_ONLY})
+    @ToolPolicy(requires = {Permission.READ_ONLY}, risk = RiskLevel.SAFE, timeoutMs = 2_000)
     public String readFile(String path) {
-        return exec("readFile", m -> this.sandbox.safeRun(m, () -> readOps(path)));
+
+        return run("readFile", () -> readOps(path));
     }
 
-    @Tool("Edit a file at the given path, replacing oldContent with newContent")
+    @Tool("Edit a file replacing oldContent with newContent")
+    @ToolPolicy(requires = {Permission.FILE_WRITE}, risk = RiskLevel.SAFE)
     public String editFile(String path, String oldContent, String newContent) {
-        return exec("editFile", m -> this.sandbox.safeRun(m, () -> editOpts(path, oldContent, newContent)));
-    }
-
-
-    private String exec(String name, Function<Method, String> action) {
-        return Arrays.stream(this.getClass().getMethods())
-                .filter(m -> m.getName().equals(name))
-                .findFirst()
-                .map(action)
-                .orElse("writeFile not found");
-    }
-
-
-    @Tool("Read or update memory.md scratchpad action =read|write|append")
-    public String memory(String action, String content) {
-        try {
-            String memory = "memory.md";
-            final Path path = Path.of(memory);
-            return switch (action) {
-                case "read" -> Files.readString(path);
-                case "write" -> {
-                    Files.writeString(path, content);
-                    yield "ok";
-                }
-                case "append" -> {
-                    Files.writeString(path, content, APPEND);
-                    yield "ok";
-                }
-                default -> "unknown action";
-            };
-        } catch (Exception e) {
-            return """
-                    {
-                    "success":false,
-                     "error":"%s"
-                    }
-                    """.formatted(e.getMessage());
-        }
+        return run("editFile", () -> editOpts(path, oldContent, newContent));
     }
 
     @Tool("Execute a shell command and return output")
-    public String ExecCommand(String command) {
-        return execOps(command);
+    @ToolPolicy(requires = {Permission.SHELL_EXEC}, risk = RiskLevel.SAFE, timeoutMs = 15_000)
+    public String execCommand(String command) {
+        return run("execCommand", () -> execOps(command));
     }
+
+    @Tool("Read or update memory.md — action = read|write|append")
+    @ToolPolicy(requires = {Permission.FILE_WRITE}, risk = RiskLevel.SAFE)
+    public String memory(String action, String content) {
+        return run("memory", () -> {
+            Path path = Path.of("memory.md");
+            return switch (action) {
+                case "read"   -> Files.readString(path);
+                case "write"  -> { Files.writeString(path, content);         yield "ok"; }
+                case "append" -> { Files.writeString(path, content, APPEND); yield "ok"; }
+                default       -> "unknown action: " + action;
+            };
+        });
+    }
+
     @Tool("Print a message to the terminal")
+    @ToolPolicy(risk = RiskLevel.SAFE)
     public String print(String message) {
-        try {
+        return run("print", () -> {                                    // ✅ via sandbox
             TerminalIO.getInstance().printLine("[AGENT] " + message);
-            return """
-                    {"success":true}
-                    """;
+            return "ok";
+        });
+    }
+
+
+    private String run(String toolName, Callable<String> action) {
+        Method method = resolveMethod(toolName);
+        try {
+            return sandbox.run(method, action);
+
         } catch (Exception e) {
-            return """
-                    {
-                    "success":false,
-                     "error":"%s"
-                    }
-                    """.formatted(e.getMessage());
+           throw new RuntimeException(e);
         }
     }
 
+    private Method resolveMethod(String name) {
+        return Arrays.stream(this.getClass().getMethods())
+                .filter(m -> m.getName().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Method not found: " + name));
+    }
 
 }
