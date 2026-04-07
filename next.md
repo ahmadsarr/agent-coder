@@ -1,5 +1,3 @@
-- Safe execution sandbox
-   Per-tool permissions, command timeouts, resource limits, and approval workflows for risky actions.
 - Patch planning + preview
    Agent proposes a structured change plan, shows patch previews, and applies only approved hunks.
 - Retrieval memory
