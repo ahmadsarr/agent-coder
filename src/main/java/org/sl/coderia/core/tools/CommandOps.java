@@ -25,22 +25,33 @@ public interface CommandOps {
             )
     );
      default String execOps(String command) throws IOException, InterruptedException {
-            TerminalIO.getInstance().printLine("Executing command: " + command);
-            ProcessBuilder pb = new ProcessBuilder(command);
-            pb.directory(WORKSPACE_ROOT.toFile());
+            TerminalIO io = TerminalIO.getInstance();
+            long startedAt = System.nanoTime();
+            String commandId = Integer.toHexString((command == null ? "" : command).hashCode());
+            io.printLine("[TOOL][execCommand][" + commandId + "] start cwd=" + WORKSPACE_ROOT + " cmd=" + compact(command, 140));
+            ProcessBuilder pb =  new ProcessBuilder("bash", "-c", command);
             pb.redirectErrorStream(true);
             Process process = pb.start();
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             StringBuilder output = new StringBuilder();
             String line;
+            int lineCount = 0;
 
             while ((line = reader.readLine()) != null) {
                 output.append(line).append("\n");
-                TerminalIO.getInstance().printLine("[COMMAND] " + line); // stream to terminal
+                lineCount++;
             }
 
             int exitCode = process.waitFor();
+            long durationMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            io.printLine(
+                    "[TOOL][execCommand][" + commandId + "] done exit=" + exitCode
+                            + " durationMs=" + durationMs
+                            + " lines=" + lineCount
+                            + " chars=" + output.length()
+                            + " outputPreview=" + compact(output.toString(), 220)
+            );
             return """
                     {"success":true, "exitCode":%d, "output":"%s"}
                     """.formatted(exitCode, Utils.escapeJson(output.toString()));
@@ -97,6 +108,17 @@ public interface CommandOps {
             parts.add(current.toString());
         }
         return parts;
+    }
+
+    private String compact(String value, int maxLen) {
+        if (value == null) {
+            return "<null>";
+        }
+        String normalized = value.replace("\n", "\\n").replace("\r", "\\r").trim();
+        if (normalized.length() <= maxLen) {
+            return normalized;
+        }
+        return normalized.substring(0, maxLen) + "...";
     }
     
     

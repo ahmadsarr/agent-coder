@@ -3,8 +3,8 @@ package org.sl.coderia.core.tools;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import lombok.NoArgsConstructor;
+import org.sl.coderia.core.utils.TerminalIO;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -14,12 +14,23 @@ public class ToolExecutor {
     Map<String, Function<String, ToolExecutionResultMessage>> registry = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ToolExecutionResultMessage execute(ToolExecutionRequest req) {
+        TerminalIO io = TerminalIO.getInstance();
+        long startedAt = System.nanoTime();
+        io.printLine("[TOOL-EXEC] dispatch name=" + req.name() + " args=" + preview(req.arguments(), 180));
+
         Function<String, ToolExecutionResultMessage> fn = registry.get(req.name());
-        if (fn == null)
+        if (fn == null) {
+            io.printLine("[TOOL-EXEC] reject unknownTool=" + req.name() + " available=" + registry.keySet());
             return error(req.name(), "Unknown tool: " + req.name());
+        }
         try {
-            return fn.apply(req.arguments());
+            ToolExecutionResultMessage result = fn.apply(req.arguments());
+            long durationMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            io.printLine("[TOOL-EXEC] success name=" + req.name() + " durationMs=" + durationMs + " text=" + preview(result.text(), 180));
+            return result;
         } catch (Exception e) {
+            long durationMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            io.printLine("[TOOL-EXEC] failure name=" + req.name() + " durationMs=" + durationMs + " error=" + preview(e.getMessage(), 180));
             return error(req.name(), e.getMessage());
         }
     }
@@ -37,8 +48,8 @@ public class ToolExecutor {
 
                 .register("writeFile",   args ->
                         ok("writeFile",   tools.writeFile(
-                                ex.arg(args, "path"),
-                                ex.arg(args, "content"))))
+                                ex.arg(args, "arg0"),
+                                ex.arg(args, "arg1"))))
 
                 .register("execCommand", args ->
                         ok("execCommand", tools.execCommand(ex.arg(args, "arg0"))))
@@ -72,6 +83,17 @@ public class ToolExecutor {
                 .compile("\"" + key + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
                 .matcher(json);
         return m.find() ? m.group(1).replace("\\n", "\n").replace("\\\"", "\"") : "";
+    }
+
+    private String preview(String value, int maxLen) {
+        if (value == null) {
+            return "<null>";
+        }
+        String compact = value.replace("\n", "\\n").replace("\r", "\\r").trim();
+        if (compact.length() <= maxLen) {
+            return compact;
+        }
+        return compact.substring(0, maxLen) + "...";
     }
 
 

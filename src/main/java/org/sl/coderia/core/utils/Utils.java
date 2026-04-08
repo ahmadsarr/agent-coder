@@ -10,10 +10,11 @@ public class Utils {
     private Utils() {
     }
 
-    public static HttpClientBuilder createHttpClientBuilder(long timeout) {
+    public static HttpClientBuilder createHttpClientBuilder(long timeoutSeconds) {
+
         return JdkHttpClient.builder()
-                .connectTimeout(Duration.ofSeconds(timeout))
-                .readTimeout(Duration.ofSeconds(timeout * 10L))
+                .connectTimeout(Duration.ofSeconds(timeoutSeconds))
+                .readTimeout(Duration.ofSeconds(timeoutSeconds*2))
                 .httpClientBuilder(java.net.http.HttpClient.newBuilder()
                         .version(HttpClient.Version.HTTP_1_1));
     }

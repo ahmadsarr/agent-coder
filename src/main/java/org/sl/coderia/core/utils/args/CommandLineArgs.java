@@ -13,8 +13,8 @@ public class CommandLineArgs implements Helper {
     private static final String DEFAULT_MODEL_NAME = "qwen/qwen3-coder-30b";
     private static final String DEFAULT_CONNECT_TIMEOUT_SECONDS = "10";
     private static final String DEFAULT_MAX_MEMORY_MESSAGES = "10";
-    private static final String DEFAULT_LOG_REQUESTS = "false";
-    private static final String DEFAULT_LOG_RESPONSES = "false";
+    private static final String DEFAULT_LOG_REQUESTS = "true";
+    private static final String DEFAULT_LOG_RESPONSES = "true";
     @Arg(name = "--api-key", description = "OpenAI API key",defaultValue = DEFAULT_API_KEY)
     private String apiKey;
     @Arg(name = "--url", description = "OpenAI API URL",defaultValue = DEFAULT_BASE_URL)

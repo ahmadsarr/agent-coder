@@ -42,7 +42,8 @@ public class AgentLoop {
 
         boolean done = false;
 
-        for (int i = 0; i < 10 && !done; i++) {
+        for (int i = 0; i < 60 && !done; i++) {
+            compressObservations(2000,3);
             ChatResponse response = model.chat(
                     ChatRequest.builder()
                             .messages(trajectory)
@@ -57,7 +58,6 @@ public class AgentLoop {
                 for (ToolExecutionRequest req : msg.toolExecutionRequests()) {
 
                     ToolExecutionResultMessage observation = tools.execute(req);
-                    terminal.printLine("Observation: " + observation.text());
                     trajectory.add(observation);
 
                     if ("finish".equals(req.name())) {
@@ -72,6 +72,36 @@ public class AgentLoop {
             terminal.printLine("Assistant: " + response.aiMessage().text());
         }
     }
+    private void compressObservations(int maxChars, int maxMessages) {
+
+        trajectory.replaceAll(msg -> {
+            if (msg instanceof ToolExecutionResultMessage t && t.text() != null) {
+                if (t.text().length() > maxChars) {
+                    return ToolExecutionResultMessage.builder()
+                            .id(t.id())
+                            .toolName(t.toolName())
+                            .text(t.text().substring(0, maxChars) + "\n…[truncated]")
+                            .build();
+                }
+            }
+            return msg;
+        });
+
+        List<Integer> toolIndexes = new ArrayList<>();
+
+        for (int i = 0; i < trajectory.size(); i++) {
+            if (trajectory.get(i) instanceof ToolExecutionResultMessage) {
+                toolIndexes.add(i);
+            }
+        }
+
+        int excess = toolIndexes.size() - maxMessages;
+
+        for (int i = 0; i < excess; i++) {
+            int indexToRemove = toolIndexes.get(i);
+            trajectory.remove(indexToRemove - i);
+        }
+    }
 
     public String prompt() {
         return """
@@ -84,13 +114,6 @@ public class AgentLoop {
                 - **One tool at a time** — call a tool, inspect its output fully, then decide
                   the next action. Do not chain calls without processing intermediate results.
                 Always use memory.md to persist you plan read it necessay
-
-                ## Decision loop
-                THOUGHT  → What do I know? What is still unknown?
-                ACTION   → Which tool resolves the unknown? Call it.
-                OBSERVE  → Read the full output. Update your understanding.
-                REPEAT   → Until the answer is fully grounded.
-                ANSWER   → Respond concisely. Cite which tools confirmed each key fact.
 
                 ## Output format
                 - Lead with the direct answer or code.
