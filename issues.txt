@@ -1,0 +1,2 @@
+1- Model never stop after execute all instructions
+2- Optimization prompt
