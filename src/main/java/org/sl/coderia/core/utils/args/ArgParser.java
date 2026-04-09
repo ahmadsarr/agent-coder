@@ -1,23 +1,20 @@
 package org.sl.coderia.core.utils.args;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 public class ArgParser {
+
     private record Argument(
             String fieldName,
             String argName,
             String description,
-            String defaultValue,
+            Object defaultValue,
             Type type
-    ) {
-    }
+    ) {}
 
-    ;
     private final String[] args;
 
     public ArgParser(String[] args) {
@@ -31,13 +28,20 @@ public class ArgParser {
                 .findFirst()
                 .map(c -> (Constructor<T>) c)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "No public constructor with No-arg was found for " + type.getName()));
+                        "No public no-arg constructor found for " + type.getName()));
+
+        T instance = constructor.newInstance();
+        if (Arrays.asList(args).contains("--help")) {
+            System.out.println(instance.help());
+            System.exit(0);
+        }
 
         Map<String, Argument> argumentByFieldName = Arrays.stream(type.getDeclaredFields())
                 .filter(f -> f.isAnnotationPresent(Arg.class))
                 .map(f -> {
                     Arg annotation = f.getAnnotation(Arg.class);
-                    return new Argument(f.getName(), annotation.name(), annotation.description(),annotation.defaultValue(), f.getType());
+                    return new Argument(f.getName(), annotation.name(), annotation.description(),
+                            annotation.defaultValue(), f.getType());
                 })
                 .collect(Collectors.toMap(
                         Argument::fieldName,
@@ -45,59 +49,53 @@ public class ArgParser {
                         (a1, a2) -> a2
                 ));
 
-        T instance = constructor.newInstance();
-
         for (Map.Entry<String, Argument> entry : argumentByFieldName.entrySet()) {
-            try {
-
-
             String fieldName = entry.getKey();
             Argument arg = entry.getValue();
-            String setterName = "set"
-                    + fieldName.substring(0, 1).toUpperCase()
-                    + fieldName.substring(1);
+            try {
+                String setterName = "set"
+                        + fieldName.substring(0, 1).toUpperCase()
+                        + fieldName.substring(1);
 
-            Field field = type.getDeclaredField(fieldName);
-            Object value = getArg(arg.argName(), null);
-            if(value == null)
-                value = convert(entry.getValue().type(),entry.getValue().defaultValue());
-            if(value == null)
-                continue;
-            type.getMethod(setterName, field.getType()).invoke(instance, value);
+
+
+                Field field = type.getDeclaredField(fieldName);
+                Object value = getArg(arg.argName(), null);
+
+
+                if (value == null)
+                    value = arg.defaultValue();
+                if (value == null)
+                    continue;
+
+                type.getMethod(setterName, field.getType()).invoke(instance, convert(arg.type,value));
             } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage() + "");
+                System.err.println("Error parsing argument '" + arg.argName() + "': " + e.getMessage());
             }
         }
 
         return instance;
     }
 
-    private Object convert(Type type, String value) {
-        if(value == null || value.isEmpty())
-            return null;
-        if (type.equals(String.class)) {
-            return value;
-        } else if (type.equals(int.class)) {
-            return Integer.parseInt(value);
-        } else if (type.equals(long.class)) {
-            return Long.parseLong(value);
-        } else if (type.equals(double.class)) {
-            return Double.parseDouble(value);
-        } else if (type.equals(boolean.class)) {
-            return Boolean.parseBoolean(value);
-        }
+    private Object convert(Type type, Object value) {
+        if (value == null ) return null;
+        if (type.equals(String.class))   return value;
+        if (type.equals(int.class))      return Integer.parseInt(value.toString());
+        if (type.equals(long.class))     return Long.parseLong(value.toString());
+        if (type.equals(double.class))   return Double.parseDouble(value.toString());
+        if (type.equals(boolean.class))  return Boolean.parseBoolean(value.toString());
         return null;
     }
 
     private String getArg(String key, String defaultValue) {
-        for (int i = 0; i < this.args.length - 1; i++) {
-            if (args[i].startsWith("=")) {
-                String[] kv = args[i].split("=");
-                if (kv[0].equals(key)) {
-                    return kv[1];
-                }
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].contains("=")) {
+                String[] kv = args[i].split("=", 2);
+                if (kv[0].equals(key)) return kv[1];
+                continue;
             }
-            if (args[i].equals(key)) {
+            // Support --key value
+            if (args[i].equals(key) && i + 1 < args.length) {
                 return args[i + 1];
             }
         }
@@ -123,5 +121,4 @@ public class ArgParser {
     public double getDoubleValue(String key, double defaultValue) {
         return Double.parseDouble(getArg(key, Double.toString(defaultValue)));
     }
-
 }

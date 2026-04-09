@@ -3,10 +3,12 @@ package org.sl.coderia.core.utils.args;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
 @AllArgsConstructor
 @Getter
 @Setter
+@ToString
 public class CommandLineArgs implements Helper {
     private static final String DEFAULT_API_KEY = "sk-";
     private static final String DEFAULT_BASE_URL = "http://localhost:1234/v1";
@@ -20,7 +22,7 @@ public class CommandLineArgs implements Helper {
     @Arg(name = "--url", description = "OpenAI API URL",defaultValue = DEFAULT_BASE_URL)
     private String baseUrl;
     @Arg(name = "--model", description = "OpenAI model name",defaultValue = DEFAULT_MODEL_NAME)
-    private String modelName;
+    private String model;
     @Arg(name = "--timeout", description = "OpenAI API timeout",defaultValue = DEFAULT_CONNECT_TIMEOUT_SECONDS )
     private long timeout;
     @Arg(name = "--max-memory-messages", description = "Maximum number of messages to store in memory",defaultValue = DEFAULT_MAX_MEMORY_MESSAGES)
@@ -32,18 +34,7 @@ public class CommandLineArgs implements Helper {
 
     public CommandLineArgs() {}
 
-    @Override
-    public String toString() {
-        return "ArgForModel{" +
-                "apiKey='" + apiKey + '\'' +
-                ", baseUrl='" + baseUrl + '\'' +
-                ", modelName='" + modelName + '\'' +
-                ", timeout=" + timeout +
-                ", maxMemoryMessages=" + maxMemoryMessages +
-                ", logRequests=" + logRequests +
-                ", logResponse=" + logResponse +
-                '}';
-    }
+
 
     @Override
     public String help() {

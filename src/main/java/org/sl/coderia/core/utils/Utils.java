@@ -11,7 +11,7 @@ public class Utils {
     }
 
     public static HttpClientBuilder createHttpClientBuilder(long timeoutSeconds) {
-
+        System.out.println("Timeout: " + timeoutSeconds + "s");
         return JdkHttpClient.builder()
                 .connectTimeout(Duration.ofSeconds(timeoutSeconds))
                 .readTimeout(Duration.ofSeconds(timeoutSeconds*2))

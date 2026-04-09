@@ -43,7 +43,7 @@ public class AgentLoop {
         boolean done = false;
 
         for (int i = 0; i < 60 && !done; i++) {
-            compressObservations(2000,3);
+            compressObservations(2000,10);
             ChatResponse response = model.chat(
                     ChatRequest.builder()
                             .messages(trajectory)
