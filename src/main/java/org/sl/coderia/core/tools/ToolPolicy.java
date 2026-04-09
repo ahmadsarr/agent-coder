@@ -1,4 +1,4 @@
-package org.sl.coderia.core.sandbox;
+package org.sl.coderia.core.tools;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

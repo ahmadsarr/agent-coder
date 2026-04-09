@@ -1,0 +1,20 @@
+#!/bin/bash
+set -e
+
+app_name=$(basename "$PWD")
+version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+
+mkdir -p "$HOME/.local/bin" "$HOME/.local"
+
+mvn clean package -DskipTests=true
+
+cp "target/$app_name-$version.jar" "$HOME/.local/bin/$app_name.jar"
+cat > "$HOME/.local/bin/$app_name" <<EOF
+#!/bin/bash
+java -jar "\$HOME/.local/bin/$app_name.jar" "\$@"
+EOF
+
+chmod +x "$HOME/.local/bin/$app_name"
+cat "$HOME/.local/$app_name.sh"
+echo "$app_name"
+echo "Done!"

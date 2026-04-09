@@ -1,56 +1,56 @@
 package org.sl.coderia.core;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.sl.coderia.core.sandbox.ToolSandbox;
+import org.sl.coderia.core.tools.ToolSandbox;
 import org.sl.coderia.core.tools.Tools;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.EnumSet;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class ToolsTest {
-   /* private final ToolSandbox sandbox = new ToolSandbox(Arrays.stream(ToolSandbox.Permission.values()).collect(java.util.stream.Collectors.toSet()));
-    private final Tools tools = new Tools(sandbox);
+    private Tools tools;
 
-    @Test
-    void execCommandRejectsInjectionLikeInput() {
-        String result = tools.ExecCommand("ls; pwd");
-        assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("Command not allowed"));
+    @BeforeEach
+    void setUp() {
+        tools = new Tools(new ToolSandbox(EnumSet.allOf(ToolSandbox.Permission.class)));
     }
 
     @Test
-    void writeFileRejectsPathOutsideWorkspace() {
-        String result = tools.writeFile("../escape.txt", "hello");
+    void writeFileRejectsBlankPath() {
+        String result = tools.writeFile("   ", "hello");
         assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("Path escapes workspace"));
+        assertTrue(result.contains("path cannot be blank"));
     }
 
     @Test
-    void editFileFailsWhenMultipleLiteralMatchesFound() throws Exception {
-        Path file = Path.of("target/test-tmp/multi.txt");
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, "abc abc");
-
-        String result = tools.editFile(file.toString(), "abc", "x");
-
+    void writeFileRejectsNullContent() {
+        String result = tools.writeFile("target/test-tmp/null-content.txt", null);
         assertTrue(result.contains("\"success\":false"));
-        assertTrue(result.contains("Found 2 occurrences"));
-        assertEquals("abc abc", Files.readString(file));
+        assertTrue(result.contains("content cannot be null"));
     }
 
     @Test
-    void editFileReplacesSingleLiteralMatch() throws Exception {
-        Path file = Path.of("target/test-tmp/single.txt");
-        Files.createDirectories(file.getParent());
-        Files.writeString(file, "before needle after");
+    void writeFileRejectsSymlinkTraversal() throws Exception {
+        Path base = Path.of("target/test-tmp/symlink-check");
+        Files.createDirectories(base);
+        Path outside = Files.createTempDirectory("coderia-outside-");
+        Path link = base.resolve("outside-link");
+        Files.deleteIfExists(link);
+        try {
+            Files.createSymbolicLink(link, outside);
+        } catch (UnsupportedOperationException e) {
+            assumeTrue(false, "Symbolic links are not supported on this filesystem");
+        }
 
-        String result = tools.editFile(file.toString(), "needle", "VALUE");
+        String result = tools.writeFile(link.resolve("escape.txt").toString(), "secret");
 
-        assertTrue(result.contains("\"success\":true"));
-        assertEquals("before VALUE after", Files.readString(file));
-    }*/
+        assertTrue(result.contains("\"success\":false"));
+        assertTrue(result.contains("Path traverses symlink"));
+        assertTrue(Files.notExists(outside.resolve("escape.txt")));
+    }
 }

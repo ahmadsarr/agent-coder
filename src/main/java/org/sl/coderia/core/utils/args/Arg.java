@@ -8,5 +8,5 @@ import java.lang.annotation.Target;
 public @interface Arg {
     String  name();
     String description();
-    String defaultValue() default "";
+    String defaultValue() ;
 }

@@ -4,6 +4,7 @@ import org.sl.coderia.core.utils.TerminalIO;
 import org.sl.coderia.core.utils.Utils;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,49 +24,39 @@ public interface CommandOps {
                     "ps", "env", "which", "whoami"
             )
     );
-     default String execOps(String command) {
-        try {
-            List<String> args = tokenizeCommand(command);
-            if (args.isEmpty()) {
-                return """
-                    {"success":false, "error":"Empty command"}
-                    """;
-
-            }
-            String cmdName = args.get(0);
-            boolean isApproval = allowsCommands.contains(cmdName) || TerminalIO.getInstance().requestApproval("Can I execute this command: " + command);
-            if (!isApproval) {
-                return """
-                    {"success":false, "error":"Command not allowed: %s"}
-                    """.formatted(cmdName);
-            }
-
-            TerminalIO.getInstance().printLine("[TOOL] Executing command: " + command);
-
-            ProcessBuilder pb = new ProcessBuilder(args);
-            pb.directory(WORKSPACE_ROOT.toFile());
+     default String execOps(String command) throws IOException, InterruptedException {
+            TerminalIO io = TerminalIO.getInstance();
+            long startedAt = System.nanoTime();
+            String commandId = Integer.toHexString((command == null ? "" : command).hashCode());
+            io.printLine("[TOOL][execCommand][" + commandId + "] start cwd=" + WORKSPACE_ROOT + " cmd=" + compact(command, 140));
+            ProcessBuilder pb =  new ProcessBuilder("bash", "-c", command);
             pb.redirectErrorStream(true);
             Process process = pb.start();
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             StringBuilder output = new StringBuilder();
             String line;
+            int lineCount = 0;
 
             while ((line = reader.readLine()) != null) {
                 output.append(line).append("\n");
-                TerminalIO.getInstance().printLine("[COMMAND] " + line); // stream to terminal
+                lineCount++;
             }
 
             int exitCode = process.waitFor();
+            long durationMs = (System.nanoTime() - startedAt) / 1_000_000L;
+            io.printLine(
+                    "[TOOL][execCommand][" + commandId + "] done exit=" + exitCode
+                            + " durationMs=" + durationMs
+                            + " lines=" + lineCount
+                            + " chars=" + output.length()
+                            + " outputPreview=" + compact(output.toString(), 220)
+            );
             return """
                     {"success":true, "exitCode":%d, "output":"%s"}
                     """.formatted(exitCode, Utils.escapeJson(output.toString()));
 
-        } catch (Exception e) {
-            return """
-                    {"success":false, "error":"%s"}
-                    """.formatted(Utils.escapeJson(e.getMessage()));
-        }
+
     }
     private List<String> tokenizeCommand(String raw) {
         List<String> parts = new ArrayList<>();
@@ -117,6 +108,17 @@ public interface CommandOps {
             parts.add(current.toString());
         }
         return parts;
+    }
+
+    private String compact(String value, int maxLen) {
+        if (value == null) {
+            return "<null>";
+        }
+        String normalized = value.replace("\n", "\\n").replace("\r", "\\r").trim();
+        if (normalized.length() <= maxLen) {
+            return normalized;
+        }
+        return normalized.substring(0, maxLen) + "...";
     }
     
     

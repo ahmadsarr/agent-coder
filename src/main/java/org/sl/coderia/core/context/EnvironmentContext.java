@@ -1,4 +1,4 @@
-package org.sl.coderia.core.sandbox;
+package org.sl.coderia.core.context;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class EnvironmentSnapshot {
+public class EnvironmentContext {
 
     private final Path workingDir;
     private final String projectTree;
@@ -16,7 +16,7 @@ public class EnvironmentSnapshot {
     private final String buildTool;
     private final String runtimeInfo;
 
-    private EnvironmentSnapshot(Path workingDir) throws IOException {
+    private EnvironmentContext(Path workingDir) throws IOException {
         this.workingDir  = workingDir;
         this.projectTree = buildTree();
         this.gitStatus   = readGitStatus();
@@ -24,17 +24,15 @@ public class EnvironmentSnapshot {
         this.runtimeInfo = readRuntimeInfo();
     }
 
-    public static EnvironmentSnapshot of(Path workingDir) throws IOException {
-        return new EnvironmentSnapshot(workingDir);
+    public static EnvironmentContext of(Path workingDir) throws IOException {
+        return new EnvironmentContext(workingDir);
     }
 
-    public static EnvironmentSnapshot ofCurrent() throws IOException {
+    public static EnvironmentContext ofCurrent() throws IOException {
         String cwd = System.getProperty("user.dir");
-        return new EnvironmentSnapshot(cwd.isEmpty() ? Path.of(".") : Path.of(cwd));
+        return new EnvironmentContext(cwd.isEmpty() ? Path.of(".") : Path.of(cwd));
     }
 
-    //todo  llm ignore some info
-    //todo maybe let it to chose what info to show
     public String render() {
         return """
                 ## Environment
