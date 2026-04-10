@@ -42,11 +42,20 @@ public class Agent {
         }
     }
     private static ChatModel buildModel(CommandLineArgs commandLineArgs) {
-        return ChatModelFactory.openAiChatModelBuilder()
+        ChatModel model = ChatModelFactory.openAiChatModelBuilder()
                 .baseUrl(commandLineArgs.getBaseUrl())
                 .apiKey(commandLineArgs.getApiKey())
                 .modelName(commandLineArgs.getModel())
                 .httpClientBuilder(Utils.createHttpClientBuilder(commandLineArgs.getTimeout()))
                 .build();
+        if (commandLineArgs.isUseOllama()) {
+            model = ChatModelFactory.ollamaChatModelBuilder()
+                    .baseUrl(commandLineArgs.getBaseUrl())
+                    .modelName(commandLineArgs.getModel())
+                    .httpClientBuilder(Utils.createHttpClientBuilder(commandLineArgs.getTimeout()))
+                    .build();
+
+        }
+        return model;
     }
 }
