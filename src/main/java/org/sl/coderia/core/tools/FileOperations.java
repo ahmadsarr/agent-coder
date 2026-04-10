@@ -29,7 +29,6 @@ public interface FileOperations {
             }
             Files.writeString(resolved, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 
-            TerminalIO.getInstance().printLine("[TOOL] writeFile: Written " + content.length() + " chars to " + resolved);
             return """
                     {"success":true, "message":"File written successfully to %s"}
                     """.formatted(resolved);
@@ -39,15 +38,11 @@ public interface FileOperations {
         }
     }
 
-    default String readOps(String path) {
-        TerminalIO.getInstance().printLine("Reading file:"+path);
+    default String readOps(String path, boolean compress) {
         try {
             Path resolved = resolveWithinWorkspace(path);
-
             String content = Files.readString(resolved);
-            TerminalIO.getInstance().printLine("[TOOL] readFile: Read " + content.length() + " chars from " + resolved);
-            return compress(content);
-
+            return compress ? compress(content) : content;
         } catch (Exception e) {
             return errorJson(e.getMessage());
         }
@@ -66,7 +61,6 @@ public interface FileOperations {
     }
 
     default String editOpts(String path, String oldContent, String newContent) {
-        TerminalIO.getInstance().printLine("Editing file:"+path);
         try {
             Path resolved = resolveWithinWorkspace(path);
             String content = Files.readString(resolved);
@@ -110,7 +104,7 @@ public interface FileOperations {
         }
     }
 
-    private Path resolveWithinWorkspace(String inputPath) throws IOException {
+    private Path resolveWithinWorkspace(String inputPath)  {
         if (inputPath == null || inputPath.isBlank()) {
             throw new IllegalArgumentException("path cannot be blank");
         }

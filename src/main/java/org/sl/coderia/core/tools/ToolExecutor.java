@@ -1,8 +1,12 @@
 package org.sl.coderia.core.tools;
 
+import ai.djl.util.JsonUtils;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import lombok.NoArgsConstructor;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.sl.coderia.core.utils.TerminalIO;
 
 import java.util.Map;
@@ -15,8 +19,6 @@ public class ToolExecutor {
 
     public ToolExecutionResultMessage execute(ToolExecutionRequest req) {
         TerminalIO io = TerminalIO.getInstance();
-        long startedAt = System.nanoTime();
-        io.printLine("[TOOL-EXEC] dispatch name=" + req.name() + " args=" + preview(req.arguments(), 180));
 
         Function<String, ToolExecutionResultMessage> fn = registry.get(req.name());
         if (fn == null) {
@@ -25,12 +27,9 @@ public class ToolExecutor {
         }
         try {
             ToolExecutionResultMessage result = fn.apply(req.arguments());
-            long durationMs = (System.nanoTime() - startedAt) / 1_000_000L;
-            io.printLine("[TOOL-EXEC] success name=" + req.name() + " durationMs=" + durationMs + " text=" + preview(result.text(), 180));
             return result;
         } catch (Exception e) {
-            long durationMs = (System.nanoTime() - startedAt) / 1_000_000L;
-            io.printLine("[TOOL-EXEC] failure name=" + req.name() + " durationMs=" + durationMs + " error=" + preview(e.getMessage(), 180));
+            io.printLine("[TOOL-EXEC] reject tool=" + req.name() + " error=" + e.getMessage());
             return error(req.name(), e.getMessage());
         }
     }
@@ -43,24 +42,32 @@ public class ToolExecutor {
     public static ToolExecutor withTools(Tools tools) {
         ToolExecutor ex = new ToolExecutor();
         return ex
-                .register("readFile",    args ->
-                        ok("readFile",    tools.readFile(ex.arg(args, "arg0"))))
+                .register("readFile", args ->
+                        ok("readFile", tools.readFile(ex.arg(args, "arg0"))))
+                .register("readFileRaw", args ->
+                        ok("readFileRaw", tools.readFileRaw(ex.arg(args, "arg0"))))
+                .register("editFile", args ->
+                        ok("editFile", tools.editFile(
+                                ex.arg(args, "arg0"),
+                                ex.arg(args, "arg1"),
+                                ex.arg(args, "arg2"))))
 
-                .register("writeFile",   args ->
-                        ok("writeFile",   tools.writeFile(
+                .register("writeFile", args ->
+                        ok("writeFile", tools.writeFile(
                                 ex.arg(args, "arg0"),
                                 ex.arg(args, "arg1"))))
 
                 .register("execCommand", args ->
                         ok("execCommand", tools.execCommand(ex.arg(args, "arg0"))))
 
-                .register("memory",      args ->
-                        ok("memory",      tools.memory(
+                .register("memory", args ->
+                        ok("memory", tools.memory(
                                 ex.arg(args, "arg0"),
                                 ex.arg(args, "arg1"))))
-
-                .register("print",       args ->
-                        ok("print",       tools.print(ex.arg(args, "arg0"))));
+                .register("print", args ->
+                        ok("print", tools.print(ex.arg(args, "arg0"))))
+                .register("askHuman", args ->
+                        ok("askHuman", tools.askHuman(ex.arg(args, "arg0"))));
     }
 
     public static ToolExecutionResultMessage error(String toolName, String reason) {
@@ -71,6 +78,7 @@ public class ToolExecutor {
                 .text(reason)
                 .build();
     }
+
     public static ToolExecutionResultMessage ok(String name, String text) {
         return ToolExecutionResultMessage.builder()
                 .id(name)
@@ -78,11 +86,15 @@ public class ToolExecutor {
     }
 
 
-     String arg(String json, String key) {
-        java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("\"" + key + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
-                .matcher(json);
-        return m.find() ? m.group(1).replace("\\n", "\n").replace("\\\"", "\"") : "";
+    String arg(String json, String key) {
+
+        JSONParser parser = new JSONParser();
+        try {
+            JSONObject obj = (JSONObject) parser.parse(json);
+            return (String) obj.get(key);
+        } catch (ParseException e) {
+            throw new RuntimeException("AI Response" + json + "< is not a valid JSON object");
+        }
     }
 
     private String preview(String value, int maxLen) {
