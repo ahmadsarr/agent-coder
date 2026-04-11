@@ -1,10 +1,8 @@
 package org.sl.coderia.core.tools;
 
-import org.sl.coderia.core.utils.TerminalIO;
 
 import java.lang.reflect.Method;
 import java.util.Set;
-import java.util.concurrent.*;
 
 public class ToolSandbox {
     public enum RiskLevel { SAFE, RISKY, BLOCKED }
@@ -13,13 +11,12 @@ public class ToolSandbox {
 
 
     private final Set<Permission> grantedPermissions;
-    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     public ToolSandbox(Set<Permission> granted) {
         this.grantedPermissions = granted;
     }
 
-    public <T> T run(Method toolMethod, Callable<T> action, Object... args)  {
+    public Object run(Object instance,Method toolMethod,String... args) throws Exception {
         ToolPolicy policy = toolMethod.getAnnotation(ToolPolicy.class);
         String     name   = toolMethod.getName();
 
@@ -34,27 +31,28 @@ public class ToolSandbox {
         if (policy.risk() == RiskLevel.RISKY)
             throw new SecurityException("User denied execution of '" + name + "'");
 
-        Future<T> future = executor.submit(action);
-
-        T result;
-        try {
-            result = future.get(policy.timeoutMs(), TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            future.cancel(true);
-            throw new RuntimeException("Tool '" + name + "' timed out after " + policy.timeoutMs() + "ms");
-        }catch (Exception e) {
-            throw new RuntimeException(e.getMessage());
+       return invoke(instance,toolMethod,args);
+    }
+    private Object invoke(Object instance, Method method, String... args) throws Exception {
+        Class<?>[] paramTypes = method.getParameterTypes();
+        Object[] converted = new Object[paramTypes.length];
+        for (int i = 0; i < paramTypes.length; i++) {
+            converted[i] = coerce(args[i], paramTypes[i]);
         }
-
-        result = sanitise(result, 8_000);
-
-
-        return result;
+        return method.invoke(instance, converted);
     }
-    public String safeRun(Method toolMethod, Callable<String> action, Object... args) {
-            return run(toolMethod, action, args);
 
+    private Object coerce(String value, Class<?> target) {
+        if (value == null) return null;
+        if (target.isInstance(value)) return value;
+        String s = value.toString();
+        if (target == int.class || target == Integer.class)    return Integer.parseInt(s);
+        if (target == long.class || target == Long.class)      return Long.parseLong(s);
+        if (target == double.class || target == Double.class)  return Double.parseDouble(s);
+        if (target == boolean.class || target == Boolean.class) return Boolean.parseBoolean(s);
+        return s; // fallback String
     }
+
 
 
 

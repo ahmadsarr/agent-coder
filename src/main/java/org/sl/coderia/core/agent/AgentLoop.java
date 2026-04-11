@@ -32,11 +32,11 @@ public class AgentLoop {
 
 
     @Builder
-    public AgentLoop(ChatModel model, ToolExecutor tools, TerminalIO terminal, List<ToolSpecification> specs, Integer maxIterations) {
+    public AgentLoop(ChatModel model, ToolExecutor tools, TerminalIO terminal, Integer maxIterations) {
         this.model = model;
         this.tools = tools;
         this.terminal = terminal;
-        this.specs = specs;
+        this.specs = tools.getSpec();
         this.trajectory = new ArrayList<>();
         trajectory.add(SystemMessage.from(prompt()));
         this.maxIterations = maxIterations == null || maxIterations == 0 ? DEFAULT_MAX_ITERATIONS : maxIterations;
@@ -51,7 +51,7 @@ public class AgentLoop {
 
         boolean done = false;
 
-        for (int i = 0; i < this.maxIterations && !done; i++) {
+        for (int i = 0; i < this.maxIterations && !done; i++) { // reAct process
             compressObservations(2000, 10);
             ChatResponse response = model.chat(
                     ChatRequest.builder()

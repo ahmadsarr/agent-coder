@@ -1,73 +1,67 @@
 package org.sl.coderia.core.tools;
 
-import ai.djl.util.JsonUtils;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.agent.tool.ToolSpecification;
+import dev.langchain4j.agent.tool.ToolSpecifications;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
-import lombok.NoArgsConstructor;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-import org.sl.coderia.core.utils.TerminalIO;
 
-import java.util.Map;
-import java.util.function.Function;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.ArrayList;
+import java.util.List;
 
-
-@NoArgsConstructor
 public class ToolExecutor {
-    Map<String, Function<String, ToolExecutionResultMessage>> registry = new java.util.concurrent.ConcurrentHashMap<>();
+    private final ToolSandbox sandbox;
+    private final ToolRegistry registry;
+
+    public ToolExecutor(ToolSandbox sandbox, ToolRegistry registry) {
+        this.sandbox = sandbox;
+        this.registry = registry;
+    }
 
     public ToolExecutionResultMessage execute(ToolExecutionRequest req) {
-        TerminalIO io = TerminalIO.getInstance();
-
-        Function<String, ToolExecutionResultMessage> fn = registry.get(req.name());
+        ToolDef fn = registry.get(req.name());
         if (fn == null) {
-            io.printLine("[TOOL-EXEC] reject unknownTool=" + req.name() + " available=" + registry.keySet());
             return error(req.name(), "Unknown tool: " + req.name());
         }
         try {
-            ToolExecutionResultMessage result = fn.apply(req.arguments());
-            return result;
+            List<String> args = extractArgs(req.arguments(), fn.getMethod());
+            Object result = this.sandbox.run(fn.getInstance(), fn.getMethod(), args.toArray(String[]::new));
+            return ok(req.name(), result);
         } catch (Exception e) {
-            io.printLine("[TOOL-EXEC] reject tool=" + req.name() + " error=" + e.getMessage());
+            e.printStackTrace();
             return error(req.name(), e.getMessage());
         }
     }
 
-    public ToolExecutor register(String name, Function<String, ToolExecutionResultMessage> callable) {
-        registry.put(name, callable);
-        return this;
+    public List<ToolSpecification> getSpec() {
+        return this.registry.getToolMethods().stream()
+                .map(ToolSpecifications::toolSpecificationFrom)
+                .toList();
     }
 
-    public static ToolExecutor withTools(Tools tools) {
-        ToolExecutor ex = new ToolExecutor();
-        return ex
-                .register("readFile", args ->
-                        ok("readFile", tools.readFile(ex.arg(args, "arg0"))))
-                .register("readFileRaw", args ->
-                        ok("readFileRaw", tools.readFileRaw(ex.arg(args, "arg0"))))
-                .register("editFile", args ->
-                        ok("editFile", tools.editFile(
-                                ex.arg(args, "arg0"),
-                                ex.arg(args, "arg1"),
-                                ex.arg(args, "arg2"))))
 
-                .register("writeFile", args ->
-                        ok("writeFile", tools.writeFile(
-                                ex.arg(args, "arg0"),
-                                ex.arg(args, "arg1"))))
+    private List<String> extractArgs(String json, Method method) {
+        List<String> args = new ArrayList<>();
+        Parameter[] parameters = method.getParameters();
 
-                .register("execCommand", args ->
-                        ok("execCommand", tools.execCommand(ex.arg(args, "arg0"))))
-
-                .register("memory", args ->
-                        ok("memory", tools.memory(
-                                ex.arg(args, "arg0"),
-                                ex.arg(args, "arg1"))))
-                .register("print", args ->
-                        ok("print", tools.print(ex.arg(args, "arg0"))))
-                .register("askHuman", args ->
-                        ok("askHuman", tools.askHuman(ex.arg(args, "arg0"))));
+        JSONObject obj = parseJson(json);
+        for (int i = 0; i < method.getParameterCount(); i++) {
+            String paramName = parameters[i].getName(); // vrai nom si -parameters activé
+            String raw = (String)obj.get(paramName);
+            args.add(raw);
+        }
+        return args;
+    }
+    private JSONObject parseJson(String json) {
+        try {
+            return (JSONObject) new JSONParser().parse(json);
+        } catch (ParseException e) {
+            throw new RuntimeException("Invalid JSON from AI: " + json);
+        }
     }
 
     public static ToolExecutionResultMessage error(String toolName, String reason) {
@@ -79,34 +73,22 @@ public class ToolExecutor {
                 .build();
     }
 
-    public static ToolExecutionResultMessage ok(String name, String text) {
+    public static ToolExecutionResultMessage ok(String name, Object text) {
         return ToolExecutionResultMessage.builder()
                 .id(name)
-                .toolName(name).isError(false).text(text).build();
+                .toolName(name)
+                .isError(false)
+                .text(String.valueOf(text))
+                .build();
     }
 
-
     String arg(String json, String key) {
-
         JSONParser parser = new JSONParser();
         try {
             JSONObject obj = (JSONObject) parser.parse(json);
             return (String) obj.get(key);
         } catch (ParseException e) {
-            throw new RuntimeException("AI Response" + json + "< is not a valid JSON object");
+            throw new RuntimeException("AI Response " + json + " < is not a valid JSON object");
         }
     }
-
-    private String preview(String value, int maxLen) {
-        if (value == null) {
-            return "<null>";
-        }
-        String compact = value.replace("\n", "\\n").replace("\r", "\\r").trim();
-        if (compact.length() <= maxLen) {
-            return compact;
-        }
-        return compact.substring(0, maxLen) + "...";
-    }
-
-
 }
